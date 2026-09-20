@@ -2,57 +2,80 @@ import asyncio
 import json
 import os
 from datetime import datetime, timezone
+
 from playwright.async_api import async_playwright
 
 
-TARGET_PAGE = "https://toffeelive.com/en/watch/Xi_Ga5oBNnOkwJLWkhKP"
+PAGE_URL = "https://toffeelive.com/en/live"
+
+TARGET_PART = "/web/playback/"
 
 OUTPUT_DIR = "debug"
-API_OUTPUT = os.path.join(OUTPUT_DIR, "api_calls.json")
-ERROR_OUTPUT = os.path.join(OUTPUT_DIR, "page_errors.json")
-CONSOLE_OUTPUT = os.path.join(OUTPUT_DIR, "console.json")
+
+REQUEST_FILE = os.path.join(
+    OUTPUT_DIR,
+    "playback_request.json"
+)
+
+RESPONSE_FILE = os.path.join(
+    OUTPUT_DIR,
+    "playback_response.json"
+)
 
 
-def mask_headers(headers):
-    """
-    Keep useful headers but hide sensitive values.
-    """
-    result = {}
-
-    sensitive = {
-        "authorization",
-        "cookie",
-        "set-cookie",
-        "x-api-key",
-        "proxy-authorization",
-    }
-
-    for key, value in headers.items():
-        if key.lower() in sensitive:
-            if value:
-                result[key] = "[REDACTED]"
-            else:
-                result[key] = ""
-        else:
-            result[key] = value
-
-    return result
+def now():
+    return datetime.now(
+        timezone.utc
+    ).isoformat()
 
 
-def safe_json(value):
+def parse_json(value):
+    if not value:
+        return None
+
     try:
         return json.loads(value)
     except Exception:
         return None
 
 
+def mask_headers(headers):
+    """
+    Hide cookies/auth tokens but keep
+    the remaining headers for debugging.
+    """
+
+    hidden = {
+        "authorization",
+        "cookie",
+        "set-cookie",
+        "x-api-key",
+        "proxy-authorization"
+    }
+
+    result = {}
+
+    for key, value in headers.items():
+
+        if key.lower() in hidden:
+            result[key] = "[REDACTED]"
+        else:
+            result[key] = value
+
+    return result
+
+
 async def main():
 
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    os.makedirs(
+        OUTPUT_DIR,
+        exist_ok=True
+    )
 
-    api_calls = []
-    page_errors = []
-    console_messages = []
+    request_saved = False
+    response_saved = False
+
+    target_url = None
 
     async with async_playwright() as p:
 
@@ -69,294 +92,245 @@ async def main():
 
         page = await context.new_page()
 
-        # -----------------------------
-        # Console
-        # -----------------------------
+        # ==================================================
+        # REQUEST
+        # ==================================================
 
-        def on_console(msg):
-            try:
-                console_messages.append({
-                    "type": msg.type,
-                    "text": msg.text,
-                    "timestamp": datetime.now(
-                        timezone.utc
-                    ).isoformat()
-                })
-            except Exception:
-                pass
+        async def on_request(request):
 
-        page.on("console", on_console)
-
-        # -----------------------------
-        # Page errors
-        # -----------------------------
-
-        def on_page_error(error):
-            page_errors.append({
-                "error": str(error),
-                "timestamp": datetime.now(
-                    timezone.utc
-                ).isoformat()
-            })
-
-        page.on("pageerror", on_page_error)
-
-        # -----------------------------
-        # Network request
-        # -----------------------------
-
-        async def handle_request(request):
+            nonlocal request_saved
+            nonlocal target_url
 
             url = request.url
 
-            # Focus on API/playback related requests
-            interesting = any(
-                x in url.lower()
-                for x in [
-                    "playback",
-                    "entitlement",
-                    "toffee",
-                    "api"
-                ]
-            )
-
-            if not interesting:
+            if TARGET_PART not in url:
                 return
+
+            # Avoid capturing duplicate playback requests
+            if request_saved:
+                return
+
+            request_saved = True
+            target_url = url
+
+            print("")
+            print("========================================")
+            print("PLAYBACK REQUEST FOUND")
+            print("========================================")
+            print("URL:", url)
+            print("METHOD:", request.method)
 
             payload = request.post_data
 
-            item = {
-                "timestamp": datetime.now(
-                    timezone.utc
-                ).isoformat(),
-
-                "type": "request",
-
+            data = {
+                "captured_at": now(),
                 "url": url,
-
                 "method": request.method,
-
                 "resourceType": request.resource_type,
-
                 "headers": mask_headers(
                     await request.all_headers()
                 ),
-
-                "postData": payload,
-
-                "postDataJSON": (
-                    safe_json(payload)
-                    if payload
-                    else None
-                )
+                "payload_raw": payload,
+                "payload_json": parse_json(payload)
             }
 
-            api_calls.append(item)
+            with open(
+                REQUEST_FILE,
+                "w",
+                encoding="utf-8"
+            ) as f:
 
-            print("\n================ REQUEST ================")
-            print("URL:", url)
-            print("METHOD:", request.method)
-            print("TYPE:", request.resource_type)
+                json.dump(
+                    data,
+                    f,
+                    ensure_ascii=False,
+                    indent=2
+                )
 
-            if payload:
-                print("PAYLOAD:")
-                print(payload)
+            print("")
+            print("REQUEST SAVED:")
+            print(REQUEST_FILE)
 
-        page.on("request", handle_request)
+        # ==================================================
+        # RESPONSE
+        # ==================================================
 
-        # -----------------------------
-        # Network response
-        # -----------------------------
+        async def on_response(response):
 
-        async def handle_response(response):
+            nonlocal response_saved
 
             url = response.url
 
-            interesting = any(
-                x in url.lower()
-                for x in [
-                    "playback",
-                    "entitlement",
-                    "toffee",
-                    "api"
-                ]
-            )
-
-            if not interesting:
+            if TARGET_PART not in url:
                 return
 
-            item = {
-                "timestamp": datetime.now(
-                    timezone.utc
-                ).isoformat(),
+            if response_saved:
+                return
 
-                "type": "response",
+            response_saved = True
 
+            print("")
+            print("========================================")
+            print("PLAYBACK RESPONSE FOUND")
+            print("========================================")
+            print("URL:", url)
+            print("STATUS:", response.status)
+
+            data = {
+                "captured_at": now(),
                 "url": url,
-
                 "status": response.status,
-
                 "statusText": response.status_text,
-
                 "headers": mask_headers(
                     await response.all_headers()
                 )
             }
 
-            # Try to capture response body
+            # ------------------------------------------
+            # Read response body
+            # ------------------------------------------
+
             try:
+
                 body = await response.body()
 
-                # Limit extremely large responses
-                max_size = 2 * 1024 * 1024
+                # 5 MB safety limit
+                if len(body) > 5 * 1024 * 1024:
 
-                if len(body) <= max_size:
-
-                    try:
-                        text = body.decode(
-                            "utf-8",
-                            errors="replace"
-                        )
-
-                        item["body"] = text
-
-                        parsed = safe_json(text)
-
-                        if parsed is not None:
-                            item["bodyJSON"] = parsed
-
-                    except Exception as e:
-                        item["bodyError"] = str(e)
-
-                else:
-                    item["body"] = (
-                        "[Response too large: "
-                        + str(len(body))
-                        + " bytes]"
+                    data["body_error"] = (
+                        "Response larger than 5 MB"
                     )
 
+                else:
+
+                    text = body.decode(
+                        "utf-8",
+                        errors="replace"
+                    )
+
+                    data["response_raw"] = text
+
+                    parsed = parse_json(text)
+
+                    if parsed is not None:
+                        data["response_json"] = parsed
+
             except Exception as e:
-                item["bodyError"] = str(e)
 
-            api_calls.append(item)
+                data["body_error"] = str(e)
 
-            print("\n================ RESPONSE ================")
-            print("URL:", url)
-            print("STATUS:", response.status)
+            with open(
+                RESPONSE_FILE,
+                "w",
+                encoding="utf-8"
+            ) as f:
 
-            if "body" in item:
-                print("BODY:")
-                print(item["body"][:5000])
+                json.dump(
+                    data,
+                    f,
+                    ensure_ascii=False,
+                    indent=2
+                )
 
-        page.on("response", handle_response)
+            print("")
+            print("RESPONSE SAVED:")
+            print(RESPONSE_FILE)
 
-        # -----------------------------
-        # Open Toffee
-        # -----------------------------
+        page.on(
+            "request",
+            on_request
+        )
 
-        print("Opening:")
-        print(TARGET_PAGE)
+        page.on(
+            "response",
+            on_response
+        )
+
+        # ==================================================
+        # OPEN TOFFEE
+        # ==================================================
+
+        print("")
+        print("Opening Toffee:")
+        print(PAGE_URL)
 
         try:
 
             await page.goto(
-                TARGET_PAGE,
+                PAGE_URL,
                 wait_until="domcontentloaded",
                 timeout=120000
             )
 
         except Exception as e:
 
-            page_errors.append({
-                "type": "goto",
-                "error": str(e),
-                "timestamp": datetime.now(
-                    timezone.utc
-                ).isoformat()
-            })
+            print(
+                "Page load warning:",
+                str(e)
+            )
 
-        # Wait for initial API calls
-        await page.wait_for_timeout(15000)
+        # Initial loading
+        await page.wait_for_timeout(
+            15000
+        )
 
-        # Scroll page to trigger lazy loading
-        for _ in range(5):
+        # ==================================================
+        # SCROLL TO TRIGGER LAZY LOADING
+        # ==================================================
+
+        for i in range(8):
+
+            print(
+                "Scrolling:",
+                i + 1,
+                "/ 8"
+            )
 
             await page.mouse.wheel(
                 0,
-                1200
+                1500
             )
 
             await page.wait_for_timeout(
                 2500
             )
 
-        # Give remaining requests time
+            # Stop once playback request
+            # has been captured.
+            if request_saved and response_saved:
+                break
+
+        # Give response handlers time
         await page.wait_for_timeout(
-            10000
+            5000
         )
 
-        # -----------------------------
-        # Save files
-        # -----------------------------
+        # ==================================================
+        # RESULT
+        # ==================================================
 
-        with open(
-            API_OUTPUT,
-            "w",
-            encoding="utf-8"
-        ) as f:
+        print("")
+        print("========================================")
+        print("CAPTURE FINISHED")
+        print("========================================")
 
-            json.dump(
-                {
-                    "captured_at": datetime.now(
-                        timezone.utc
-                    ).isoformat(),
+        print(
+            "Request captured:",
+            request_saved
+        )
 
-                    "page": TARGET_PAGE,
+        print(
+            "Response captured:",
+            response_saved
+        )
 
-                    "total_events": len(
-                        api_calls
-                    ),
-
-                    "events": api_calls
-                },
-                f,
-                ensure_ascii=False,
-                indent=2
-            )
-
-        with open(
-            ERROR_OUTPUT,
-            "w",
-            encoding="utf-8"
-        ) as f:
-
-            json.dump(
-                page_errors,
-                f,
-                ensure_ascii=False,
-                indent=2
-            )
-
-        with open(
-            CONSOLE_OUTPUT,
-            "w",
-            encoding="utf-8"
-        ) as f:
-
-            json.dump(
-                console_messages,
-                f,
-                ensure_ascii=False,
-                indent=2
+        if target_url:
+            print(
+                "Playback URL:",
+                target_url
             )
 
         await browser.close()
-
-    print("\n================================")
-    print("DONE")
-    print("API events:", len(api_calls))
-    print("Output:", API_OUTPUT)
-    print("================================")
 
 
 if __name__ == "__main__":
