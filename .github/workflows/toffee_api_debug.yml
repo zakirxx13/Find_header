@@ -1,0 +1,43 @@
+name: Toffee API Debug
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 */6 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  capture-api:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Playwright
+        run: |
+          python -m pip install --upgrade pip
+          pip install playwright
+          playwright install chromium --with-deps
+
+      - name: Run API capture
+        run: |
+          python toffee_api_debug.py
+
+      - name: Commit debug output
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add debug/api_calls.json debug/page_errors.json debug/console.json
+
+          git diff --cached --quiet || git commit -m "Update Toffee API debug"
+
+          git push
