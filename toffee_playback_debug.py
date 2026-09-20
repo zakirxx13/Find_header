@@ -10,23 +10,24 @@ from playwright.async_api import async_playwright
 # CONFIG
 # =========================================================
 
-PAGE_URL = (
-    "https://toffeelive.com/en/watch/"
-    "7x0Jd5YBEef-9-uVv_Gy"
-)
-
-PLAYBACK_PATH = "/web/playback/"
+# তোমার নিজের LAB endpoint এখানে দাও
+LAB_PLAYBACK_URL = "https://toffeelive.com/en/watch/T9O9X5UBm1RY_In7UXFv"
 
 OUTPUT_DIR = "debug"
 
-REQUEST_FILE = os.path.join(
+ORIGINAL_FILE = os.path.join(
     OUTPUT_DIR,
-    "playback_request.json"
+    "original_response.json"
 )
 
-RESPONSE_FILE = os.path.join(
+MODIFIED_FILE = os.path.join(
     OUTPUT_DIR,
-    "playback_response.json"
+    "modified_response.json"
+)
+
+M3U8_FILE = os.path.join(
+    OUTPUT_DIR,
+    "m3u8_requests.json"
 )
 
 
@@ -40,43 +41,18 @@ def now():
     ).isoformat()
 
 
-def parse_json(value):
-    if not value:
-        return None
-
-    try:
-        return json.loads(value)
-
-    except Exception:
-        return None
-
-
-def mask_headers(headers):
-    """
-    Hide sensitive authentication/cookie values.
-    """
-
-    sensitive = {
-        "authorization",
-        "cookie",
-        "set-cookie",
-        "x-api-key",
-        "proxy-authorization"
-    }
-
-    result = {}
-
-    for key, value in headers.items():
-
-        if key.lower() in sensitive:
-
-            result[key] = "[REDACTED]"
-
-        else:
-
-            result[key] = value
-
-    return result
+def save_json(path, data):
+    with open(
+        path,
+        "w",
+        encoding="utf-8"
+    ) as f:
+        json.dump(
+            data,
+            f,
+            ensure_ascii=False,
+            indent=2
+        )
 
 
 # =========================================================
@@ -90,22 +66,12 @@ async def main():
         exist_ok=True
     )
 
-    request_found = False
-    response_found = False
-
-    playback_url = None
+    m3u8_requests = []
 
     async with async_playwright() as p:
 
-        # -------------------------------------------------
-        # Browser
-        # -------------------------------------------------
-
         browser = await p.chromium.launch(
-            headless=True,
-            args=[
-                "--autoplay-policy=no-user-gesture-required"
-            ]
+            headless=True
         )
 
         context = await browser.new_context(
@@ -113,361 +79,182 @@ async def main():
                 "width": 1366,
                 "height": 768
             },
-
-            # Normal browser-like settings
-            java_script_enabled=True,
-
             locale="en-US",
-
             timezone_id="Asia/Dhaka"
         )
 
         page = await context.new_page()
 
         # =================================================
-        # RESPONSE INTERCEPTION (MODIFY DENY TO ALLOW)
+        # INTERCEPT ONLY YOUR LAB PLAYBACK ENDPOINT
         # =================================================
 
         async def handle_route(route, request):
-            """
-            Intercept playback API and modify response.
-            """
-            
-            url = request.url
-            
-            # Only intercept playback endpoint
-            if PLAYBACK_PATH not in url:
+
+            if request.url != LAB_PLAYBACK_URL:
                 await route.continue_()
                 return
-            
+
             print("")
             print("=" * 60)
-            print("INTERCEPTING PLAYBACK REQUEST")
+            print("LAB PLAYBACK REQUEST")
             print("=" * 60)
-            print(f"URL: {url}")
-            
-            # Continue the request and get the real response
+
+            print(request.url)
+
+            # Get actual LAB response
             response = await route.fetch()
-            
-            # Get the original response body
+
             body = await response.body()
-            
+
             try:
-                # Parse JSON response
-                data = json.loads(body.decode("utf-8"))
-                
-                print("")
-                print("ORIGINAL RESPONSE:")
-                print(json.dumps(data, indent=2))
-                
-                # MODIFY: Change access from "deny" to "allow"
-                if data.get("access") == "deny":
-                    data["access"] = "allow"
-                    
-                    # Optional: Clear suggested plans if needed
-                    # data["suggestedPlans"] = []
-                    
-                    print("")
-                    print("MODIFIED RESPONSE:")
-                    print(json.dumps(data, indent=2))
-                
-                # Send the modified response back to the browser
-                await route.fulfill(
-                    status=response.status,
-                    headers=dict(response.headers),
-                    body=json.dumps(data)
-                )
-                
-                print("")
-                print("Response modified and sent to browser!")
-                
-            except Exception as e:
-                print(f"Error modifying response: {e}")
-                # If modification fails, send original response
-                await route.fulfill(
-                    status=response.status,
-                    headers=dict(response.headers),
-                    body=body
+                data = json.loads(
+                    body.decode(
+                        "utf-8",
+                        errors="replace"
+                    )
                 )
 
-        # Enable route interception for the playback endpoint
-        await page.route(
-            "**/web/playback/**",
-            handle_route
-        )
+            except Exception as e:
+
+                print(
+                    "LAB response is not JSON:",
+                    e
+                )
+
+                await route.fulfill(
+                    response=response
+                )
+
+                return
+
+            # =================================================
+            # SAVE ORIGINAL SERVER RESPONSE
+            # =================================================
+
+            original = {
+                "captured_at": now(),
+                "url": request.url,
+                "status": response.status,
+                "response": data
+            }
+
+            save_json(
+                ORIGINAL_FILE,
+                original
+            )
+
+            print("")
+            print("ORIGINAL SERVER RESPONSE:")
+            print(
+                json.dumps(
+                    data,
+                    indent=2
+                )
+            )
+
+            # =================================================
+            # LAB-ONLY DENY -> ALLOW SIMULATION
+            # =================================================
+
+            modified = dict(data)
+
+            if modified.get("access") == "deny":
+
+                print("")
+                print(
+                    "LAB TEST: deny -> allow"
+                )
+
+                modified["access"] = "allow"
+
+                # Clearly mark this as a local simulation
+                modified["lab_simulated"] = True
+
+            else:
+
+                print("")
+                print(
+                    "Response was already allow."
+                )
+
+            # =================================================
+            # SAVE MODIFIED RESPONSE
+            # =================================================
+
+            modified_output = {
+                "captured_at": now(),
+                "url": request.url,
+                "status": response.status,
+                "response": modified
+            }
+
+            save_json(
+                MODIFIED_FILE,
+                modified_output
+            )
+
+            print("")
+            print("BROWSER WILL RECEIVE:")
+            print(
+                json.dumps(
+                    modified,
+                    indent=2
+                )
+            )
+
+            # =================================================
+            # RETURN MODIFIED RESPONSE TO BROWSER
+            # =================================================
+
+            await route.fulfill(
+                status=response.status,
+                headers=dict(response.headers),
+                content_type="application/json",
+                body=json.dumps(
+                    modified
+                )
+            )
 
         # =================================================
-        # REQUEST LISTENER (for logging)
+        # CAPTURE M3U8 REQUESTS
         # =================================================
 
         async def handle_request(request):
 
-            nonlocal request_found
-            nonlocal playback_url
-
             url = request.url
 
-            # Only target playback endpoint
-            if PLAYBACK_PATH not in url:
+            if ".m3u8" not in url.lower():
                 return
-
-            if request_found:
-                return
-
-            request_found = True
-
-            playback_url = url
 
             print("")
             print("=" * 60)
-            print("PLAYBACK REQUEST FOUND")
+            print("M3U8 REQUEST FOUND")
             print("=" * 60)
 
-            print("URL:")
             print(url)
 
-            print("")
-            print("METHOD:")
-            print(request.method)
-
-            print("")
-            print("RESOURCE TYPE:")
-            print(request.resource_type)
-
-            # ---------------------------------------------
-            # Request payload
-            # ---------------------------------------------
-
-            payload = request.post_data
-
-            print("")
-            print("PAYLOAD:")
-
-            if payload:
-                print(payload)
-            else:
-                print("[NO POST BODY]")
-
-            # ---------------------------------------------
-            # Headers
-            # ---------------------------------------------
-
-            try:
-
-                headers = await request.all_headers()
-
-                safe_headers = mask_headers(
-                    headers
-                )
-
-            except Exception as e:
-
-                safe_headers = {
-                    "error": str(e)
-                }
-
-            # ---------------------------------------------
-            # Save request
-            # ---------------------------------------------
-
-            data = {
-
+            item = {
                 "captured_at": now(),
-
                 "url": url,
-
                 "method": request.method,
-
-                "resourceType": request.resource_type,
-
-                "headers": safe_headers,
-
-                "payload_raw": payload,
-
-                "payload_json": parse_json(
-                    payload
-                )
+                "resourceType": request.resource_type
             }
 
-            with open(
-                REQUEST_FILE,
-                "w",
-                encoding="utf-8"
-            ) as f:
+            # Avoid duplicates
+            if not any(
+                x["url"] == url
+                for x in m3u8_requests
+            ):
 
-                json.dump(
-                    data,
-                    f,
-                    ensure_ascii=False,
-                    indent=2
+                m3u8_requests.append(
+                    item
                 )
 
-            print("")
-            print(
-                "Request saved:",
-                REQUEST_FILE
-            )
-
-        # =================================================
-        # RESPONSE LISTENER (for logging)
-        # =================================================
-
-        async def handle_response(response):
-
-            nonlocal response_found
-
-            url = response.url
-
-            # Only target playback endpoint
-            if PLAYBACK_PATH not in url:
-                return
-
-            if response_found:
-                return
-
-            response_found = True
-
-            print("")
-            print("=" * 60)
-            print("PLAYBACK RESPONSE FOUND")
-            print("=" * 60)
-
-            print("URL:")
-            print(url)
-
-            print("")
-            print("STATUS:")
-            print(response.status)
-
-            print("")
-            print("STATUS TEXT:")
-            print(response.status_text)
-
-            # ---------------------------------------------
-            # Response headers
-            # ---------------------------------------------
-
-            try:
-
-                headers = await response.all_headers()
-
-                safe_headers = mask_headers(
-                    headers
+                save_json(
+                    M3U8_FILE,
+                    m3u8_requests
                 )
-
-            except Exception as e:
-
-                safe_headers = {
-                    "error": str(e)
-                }
-
-            data = {
-
-                "captured_at": now(),
-
-                "url": url,
-
-                "status": response.status,
-
-                "statusText": response.status_text,
-
-                "headers": safe_headers
-            }
-
-            # ---------------------------------------------
-            # Response body
-            # ---------------------------------------------
-
-            try:
-
-                body = await response.body()
-
-                print("")
-                print(
-                    "Response size:",
-                    len(body),
-                    "bytes"
-                )
-
-                # 10 MB limit
-                if len(body) <= 10 * 1024 * 1024:
-
-                    text = body.decode(
-                        "utf-8",
-                        errors="replace"
-                    )
-
-                    data["response_raw"] = text
-
-                    parsed = parse_json(
-                        text
-                    )
-
-                    if parsed is not None:
-
-                        data[
-                            "response_json"
-                        ] = parsed
-
-                        print("")
-                        print(
-                            "Response is valid JSON."
-                        )
-
-                    else:
-
-                        print("")
-                        print(
-                            "Response is not JSON."
-                        )
-
-                else:
-
-                    data["body_error"] = (
-                        "Response body exceeded "
-                        "10 MB safety limit."
-                    )
-
-            except Exception as e:
-
-                data["body_error"] = str(e)
-
-            # ---------------------------------------------
-            # Save response
-            # ---------------------------------------------
-
-            with open(
-                RESPONSE_FILE,
-                "w",
-                encoding="utf-8"
-            ) as f:
-
-                json.dump(
-                    data,
-                    f,
-                    ensure_ascii=False,
-                    indent=2
-                )
-
-            print("")
-            print(
-                "Response saved:",
-                RESPONSE_FILE
-            )
-
-        # =================================================
-        # REGISTER NETWORK LISTENERS
-        # =================================================
-
-        page.on(
-            "request",
-            handle_request
-        )
-
-        page.on(
-            "response",
-            handle_response
-        )
 
         # =================================================
         # PAGE ERRORS
@@ -482,40 +269,58 @@ async def main():
         )
 
         # =================================================
-        # OPEN WATCH PAGE
+        # REGISTER ROUTE
         # =================================================
+
+        await page.route(
+            LAB_PLAYBACK_URL,
+            handle_route
+        )
+
+        page.on(
+            "request",
+            handle_request
+        )
+
+        # =================================================
+        # OPEN YOUR LAB PLAYER PAGE
+        # =================================================
+
+        # যদি playback endpoint-ই test page হয়,
+        # সরাসরি endpoint খুলবে।
+        #
+        # সাধারণত এখানে তোমার নিজের lab player page
+        # ব্যবহার করা ভালো।
 
         print("")
         print("=" * 60)
-        print("OPENING WATCH PAGE")
+        print("OPENING LAB PAGE")
         print("=" * 60)
-
-        print(PAGE_URL)
 
         try:
 
             await page.goto(
-                PAGE_URL,
+                LAB_PLAYBACK_URL,
                 wait_until="domcontentloaded",
-                timeout=120000
+                timeout=60000
             )
 
         except Exception as e:
 
             print("")
             print(
-                "Page navigation warning:"
+                "Navigation warning:"
             )
 
             print(e)
 
         # =================================================
-        # INITIAL WAIT
+        # WAIT FOR PLAYER / NETWORK
         # =================================================
 
         print("")
         print(
-            "Waiting for player initialization..."
+            "Waiting for LAB player..."
         )
 
         await page.wait_for_timeout(
@@ -523,243 +328,39 @@ async def main():
         )
 
         # =================================================
-        # PRINT PAGE INFO
+        # TRY VIDEO PLAY
         # =================================================
 
         try:
 
-            print("")
-            print("PAGE TITLE:")
-
-            print(
-                await page.title()
+            await page.evaluate(
+                """
+                () => {
+                    document
+                        .querySelectorAll("video")
+                        .forEach(video => {
+                            try {
+                                video.muted = true;
+                                video.play();
+                            } catch(e) {}
+                        });
+                }
+                """
             )
 
-        except Exception:
-            pass
+        except Exception as e:
 
-        # =================================================
-        # PLAYER / VIDEO DETECTION
-        # =================================================
-
-        print("")
-        print("=" * 60)
-        print("CHECKING PLAYER")
-        print("=" * 60)
-
-        selectors = [
-            "video",
-            "audio",
-            "button",
-            "[role='button']",
-            "[class*='player']",
-            "[class*='video']",
-            "[class*='play']",
-            "[aria-label*='Play']",
-            "[aria-label*='play']"
-        ]
-
-        for selector in selectors:
-
-            try:
-
-                locator = page.locator(
-                    selector
-                )
-
-                count = await locator.count()
-
-                print(
-                    selector,
-                    "=>",
-                    count
-                )
-
-            except Exception:
-                pass
-
-        # =================================================
-        # TRY PLAY BUTTONS
-        # =================================================
-
-        print("")
-        print("=" * 60)
-        print("TRYING PLAYER CONTROLS")
-        print("=" * 60)
-
-        play_selectors = [
-
-            "button[aria-label*='Play']",
-
-            "button[aria-label*='play']",
-
-            "[role='button'][aria-label*='Play']",
-
-            "[role='button'][aria-label*='play']",
-
-            "[class*='play-button']",
-
-            "[class*='playButton']",
-
-            "[class*='play_button']",
-
-            "[class*='player'] button",
-
-            "video"
-        ]
-
-        for selector in play_selectors:
-
-            if request_found:
-                break
-
-            try:
-
-                elements = page.locator(
-                    selector
-                )
-
-                count = await elements.count()
-
-                if count == 0:
-                    continue
-
-                print(
-                    "Trying selector:",
-                    selector,
-                    "count:",
-                    count
-                )
-
-                limit = min(
-                    count,
-                    5
-                )
-
-                for i in range(limit):
-
-                    if request_found:
-                        break
-
-                    try:
-
-                        element = elements.nth(i)
-
-                        if not await element.is_visible(
-                            timeout=1000
-                        ):
-                            continue
-
-                        print(
-                            "Clicking:",
-                            selector,
-                            i
-                        )
-
-                        await element.click(
-                            timeout=5000
-                        )
-
-                        await page.wait_for_timeout(
-                            5000
-                        )
-
-                    except Exception as e:
-
-                        print(
-                            "Click failed:",
-                            str(e)[:150]
-                        )
-
-            except Exception:
-                continue
-
-        # =================================================
-        # VIDEO PLAY JAVASCRIPT
-        # =================================================
-
-        if not request_found:
-
-            print("")
             print(
-                "Trying video.play()..."
+                "video.play error:",
+                e
             )
-
-            try:
-
-                await page.evaluate(
-                    """
-                    () => {
-                        const videos =
-                            document.querySelectorAll(
-                                "video"
-                            );
-
-                        videos.forEach(
-                            video => {
-                                try {
-                                    video.muted = true;
-                                    video.play();
-                                } catch(e) {}
-                            }
-                        );
-                    }
-                    """
-                )
-
-                await page.wait_for_timeout(
-                    8000
-                )
-
-            except Exception as e:
-
-                print(
-                    "video.play error:",
-                    str(e)
-                )
-
-        # =================================================
-        # SCROLL
-        # =================================================
-
-        if not request_found:
-
-            print("")
-            print(
-                "Scrolling watch page..."
-            )
-
-            for i in range(10):
-
-                if request_found:
-                    break
-
-                print(
-                    "Scroll",
-                    i + 1,
-                    "/ 10"
-                )
-
-                await page.mouse.wheel(
-                    0,
-                    1200
-                )
-
-                await page.wait_for_timeout(
-                    2000
-                )
 
         # =================================================
         # FINAL WAIT
         # =================================================
 
-        print("")
-        print(
-            "Final network wait..."
-        )
-
         await page.wait_for_timeout(
-            10000
+            15000
         )
 
         # =================================================
@@ -772,40 +373,25 @@ async def main():
         print("=" * 60)
 
         print(
-            "Playback request:",
-            request_found
+            "M3U8 requests:",
+            len(m3u8_requests)
         )
-
-        print(
-            "Playback response:",
-            response_found
-        )
-
-        if playback_url:
-
-            print("")
-            print(
-                "Playback URL:"
-            )
-
-            print(
-                playback_url
-            )
 
         print("")
         print(
-            "Request file:",
-            REQUEST_FILE
+            "Original:",
+            ORIGINAL_FILE
         )
 
         print(
-            "Response file:",
-            RESPONSE_FILE
+            "Modified:",
+            MODIFIED_FILE
         )
 
-        # =================================================
-        # CLOSE
-        # =================================================
+        print(
+            "M3U8:",
+            M3U8_FILE
+        )
 
         await browser.close()
 
@@ -815,7 +401,4 @@ async def main():
 # =========================================================
 
 if __name__ == "__main__":
-
-    asyncio.run(
-        main()
-    )
+    asyncio.run(main())
