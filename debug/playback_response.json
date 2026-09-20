@@ -1,24 +1,24 @@
 {
-  "captured_at": "2026-09-20T03:27:32.349048+00:00",
+  "captured_at": "2026-09-20T03:37:11.145685+00:00",
   "url": "https://entitlement-prod.services.toffeelive.com/toffee/BD/DK/web/playback/7x0Jd5YBEef-9-uVv_Gy",
   "status": 200,
-  "statusText": "",
+  "statusText": "OK",
   "headers": {
     "access-control-allow-credentials": "true",
+    "via": "1.1 google",
     "access-control-allow-origin": "https://toffeelive.com",
     "alt-svc": "h3=\":443\"; ma=2592000",
     "content-length": "324",
+    "date": "Sun, 20 Sep 2026 03:37:11 GMT",
     "content-type": "application/json; charset=utf-8",
-    "date": "Sun, 20 Sep 2026 03:27:32 GMT",
     "vary": "Origin",
-    "via": "1.1 google",
     "x-ent-rule": "7"
   },
-  "response_raw": "{\"id\":\"7x0Jd5YBEef-9-uVv_Gy\",\"title\":\"Zee Anmol\",\"access\":\"deny\",\"suggestedPlans\":[\"PRIWP00005\",\"PRMJS00004\",\"BLALLPACKPLANGTE7\",\"TK160APPUL7DGGCAL\",\"TK160APPRCUL7DGGCAL\",\"TK0USSD7DGTOFSUBS\",\"TK1800FWAUL30DGFWA\",\"TK0ULTOF1DPOST\",\"TK0ULTOF1D\",\"TK1000FWAUL30DGFWA\",\"TK706EV90DTOFPOST\",\"BLACCESS30D\",\"PRICC00007\",\"PRYVU00010\"]}",
+  "response_raw": "{\"id\": \"7x0Jd5YBEef-9-uVv_Gy\", \"title\": \"Zee Anmol\", \"access\": \"allow\", \"suggestedPlans\": [\"PRIWP00005\", \"PRMJS00004\", \"BLALLPACKPLANGTE7\", \"TK160APPUL7DGGCAL\", \"TK160APPRCUL7DGGCAL\", \"TK0USSD7DGTOFSUBS\", \"TK1800FWAUL30DGFWA\", \"TK0ULTOF1DPOST\", \"TK0ULTOF1D\", \"TK1000FWAUL30DGFWA\", \"TK706EV90DTOFPOST\", \"BLACCESS30D\", \"PRICC00007\", \"PRYVU00010\"]}",
   "response_json": {
     "id": "7x0Jd5YBEef-9-uVv_Gy",
     "title": "Zee Anmol",
-    "access": "deny",
+    "access": "allow",
     "suggestedPlans": [
       "PRIWP00005",
       "PRMJS00004",
