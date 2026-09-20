@@ -125,7 +125,79 @@ async def main():
         page = await context.new_page()
 
         # =================================================
-        # REQUEST LISTENER
+        # RESPONSE INTERCEPTION (MODIFY DENY TO ALLOW)
+        # =================================================
+
+        async def handle_route(route, request):
+            """
+            Intercept playback API and modify response.
+            """
+            
+            url = request.url
+            
+            # Only intercept playback endpoint
+            if PLAYBACK_PATH not in url:
+                await route.continue_()
+                return
+            
+            print("")
+            print("=" * 60)
+            print("INTERCEPTING PLAYBACK REQUEST")
+            print("=" * 60)
+            print(f"URL: {url}")
+            
+            # Continue the request and get the real response
+            response = await route.fetch()
+            
+            # Get the original response body
+            body = await response.body()
+            
+            try:
+                # Parse JSON response
+                data = json.loads(body.decode("utf-8"))
+                
+                print("")
+                print("ORIGINAL RESPONSE:")
+                print(json.dumps(data, indent=2))
+                
+                # MODIFY: Change access from "deny" to "allow"
+                if data.get("access") == "deny":
+                    data["access"] = "allow"
+                    
+                    # Optional: Clear suggested plans if needed
+                    # data["suggestedPlans"] = []
+                    
+                    print("")
+                    print("MODIFIED RESPONSE:")
+                    print(json.dumps(data, indent=2))
+                
+                # Send the modified response back to the browser
+                await route.fulfill(
+                    status=response.status,
+                    headers=dict(response.headers),
+                    body=json.dumps(data)
+                )
+                
+                print("")
+                print("Response modified and sent to browser!")
+                
+            except Exception as e:
+                print(f"Error modifying response: {e}")
+                # If modification fails, send original response
+                await route.fulfill(
+                    status=response.status,
+                    headers=dict(response.headers),
+                    body=body
+                )
+
+        # Enable route interception for the playback endpoint
+        await page.route(
+            "**/web/playback/**",
+            handle_route
+        )
+
+        # =================================================
+        # REQUEST LISTENER (for logging)
         # =================================================
 
         async def handle_request(request):
@@ -237,7 +309,7 @@ async def main():
             )
 
         # =================================================
-        # RESPONSE LISTENER
+        # RESPONSE LISTENER (for logging)
         # =================================================
 
         async def handle_response(response):
