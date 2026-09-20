@@ -1,5 +1,5 @@
 {
-  "captured_at": "2026-09-20T03:37:11.145685+00:00",
+  "captured_at": "2026-09-20T04:00:27.990507+00:00",
   "url": "https://entitlement-prod.services.toffeelive.com/toffee/BD/DK/web/playback/7x0Jd5YBEef-9-uVv_Gy",
   "status": 200,
   "statusText": "OK",
@@ -9,7 +9,7 @@
     "access-control-allow-origin": "https://toffeelive.com",
     "alt-svc": "h3=\":443\"; ma=2592000",
     "content-length": "324",
-    "date": "Sun, 20 Sep 2026 03:37:11 GMT",
+    "date": "Sun, 20 Sep 2026 04:00:27 GMT",
     "content-type": "application/json; charset=utf-8",
     "vary": "Origin",
     "x-ent-rule": "7"
