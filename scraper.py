@@ -12,7 +12,6 @@ from playwright.async_api import async_playwright
 # CONFIG
 # =========================================================
 
-# GitHub Secrets থেকে device token লোড
 DEVICE_TOKEN = os.environ.get("DEVICE_TOKEN", "")
 
 CONTENT_URL = (
@@ -22,33 +21,6 @@ CONTENT_URL = (
 
 OUTPUT_DIR = "debug"
 M3U8_DIR = os.path.join(OUTPUT_DIR, "m3u8_files")
-
-
-# =========================================================
-# HELPERS
-# =========================================================
-
-def now():
-    return datetime.now(timezone.utc).isoformat()
-
-
-def extract_urls(text):
-    """Extract all media URLs from text."""
-    patterns = [
-        r'https?://[^\s"\']+\.m3u8[^\s"\']*',
-        r'https?://[^\s"\']+\.mp4[^\s"\']*',
-        r'https?://[^\s"\']+\.ts[^\s"\']*',
-        r'https?://[^\s"\']*manifest[^\s"\']*',
-        r'https?://[^\s"\']*playlist[^\s"\']*',
-        r'https?://[^\s"\']*stream[^\s"\']*'
-    ]
-    
-    urls = set()
-    for pattern in patterns:
-        matches = re.findall(pattern, text, re.IGNORECASE)
-        urls.update(matches)
-    
-    return list(urls)
 
 
 # =========================================================
@@ -96,7 +68,7 @@ async def main():
             }
         )
         
-        # Set device token as cookies
+        # Set device token as cookies (before page creation)
         await context.add_cookies([
             {
                 "name": "device_token",
@@ -111,57 +83,46 @@ async def main():
                 "value": DEVICE_TOKEN,
                 "domain": ".toffeelive.com",
                 "path": "/"
-            },
-            {
-                "name": "X-Device-Token",
-                "value": DEVICE_TOKEN,
-                "domain": ".toffeelive.com",
-                "path": "/"
             }
         ])
         
         page = await context.new_page()
         
-        # Inject to localStorage
+        # =================================================
+        # FIX: Inject localStorage after navigating to blank
+        # =================================================
+        
+        await page.goto("about:blank")
         await page.evaluate(f"""
             () => {{
                 localStorage.setItem('device_token', '{DEVICE_TOKEN}');
                 localStorage.setItem('deviceId', '{DEVICE_TOKEN}');
                 localStorage.setItem('X-Device-Token', '{DEVICE_TOKEN}');
                 sessionStorage.setItem('device_token', '{DEVICE_TOKEN}');
+                sessionStorage.setItem('deviceId', '{DEVICE_TOKEN}');
             }}
         """)
-        
-        print("✓ Device token injected")
+        print("✓ Device token injected to localStorage")
         
         # =================================================
-        # ROUTE: ADD TOKEN TO ALL REQUESTS
+        # ROUTE HANDLERS
         # =================================================
         
         async def add_device_token(route, request):
             headers = request.headers
-            
-            # Add device token to all API calls
             if "toffeelive.com" in request.url:
                 headers["X-Device-Token"] = DEVICE_TOKEN
                 headers["X-Device-ID"] = DEVICE_TOKEN
-            
             await route.continue_(headers=headers)
         
         await page.route("**/*", add_device_token)
         
-        # =================================================
-        # ROUTE: MODIFY ENTITLEMENT RESPONSE
-        # =================================================
-        
         async def modify_entitlement(route, request):
-            
             if "/web/playback/" not in request.url:
                 await route.continue_()
                 return
             
             print(f"\n[INTERCEPT] {request.url}")
-            
             headers = request.headers
             headers["X-Device-Token"] = DEVICE_TOKEN
             
@@ -173,10 +134,7 @@ async def main():
                     data = json.loads(body.decode("utf-8"))
                     print(f"Original: access={data.get('access')}")
                     
-                    # FORCE ALLOW
                     data["access"] = "allow"
-                    
-                    # Add stream URLs if missing
                     content_id = data.get("id", "")
                     if content_id and "streamUrl" not in data:
                         data["streamUrl"] = f"https://stream.toffeelive.com/{content_id}/master.m3u8"
@@ -203,10 +161,6 @@ async def main():
         
         await page.route("**/web/playback/**", modify_entitlement)
         
-        # =================================================
-        # ROUTE: CAPTURE M3U8/MP4 REQUESTS
-        # =================================================
-        
         async def capture_media(route, request):
             url = request.url
             
@@ -218,7 +172,6 @@ async def main():
                     "time": now()
                 })
                 
-                # Save m3u8 content
                 if '.m3u8' in url:
                     try:
                         response = await route.fetch()
@@ -232,7 +185,6 @@ async def main():
                         
                         print(f"  Saved: {filename}")
                         
-                        # Extract nested URLs
                         content = body.decode('utf-8', errors='ignore')
                         nested = extract_urls(content)
                         for u in nested:
@@ -258,7 +210,7 @@ async def main():
         await page.route("**/*", capture_media)
         
         # =================================================
-        # OPEN CONTENT PAGE
+        # NOW OPEN CONTENT PAGE
         # =================================================
         
         print(f"\n[OPENING] {CONTENT_URL}")
@@ -271,10 +223,9 @@ async def main():
         
         print(f"Title: {await page.title()}")
         
-        # Wait and scroll to trigger player
+        # Wait and interact
         await page.wait_for_timeout(10000)
         
-        # Try to play
         await page.evaluate("""
             () => {
                 const v = document.querySelector('video');
@@ -295,7 +246,6 @@ async def main():
         print("EXTRACTION")
         print("=" * 60)
         
-        # Video elements
         videos = await page.query_selector_all("video")
         print(f"Videos: {len(videos)}")
         
@@ -311,7 +261,6 @@ async def main():
                 })
                 print(f"  Video {i}: {current or src}")
         
-        # Performance API
         perf = await page.evaluate("""
             () => performance.getEntriesByType('resource')
                 .filter(r => r.name.match(/\\.(m3u8|mp4|ts|m4s)$/))
@@ -328,7 +277,6 @@ async def main():
                     "time": now()
                 })
         
-        # Window objects
         js_data = await page.evaluate("""
             () => {
                 const r = {};
@@ -366,9 +314,27 @@ async def main():
         await browser.close()
 
 
-# =========================================================
-# ENTRY POINT
-# =========================================================
+def now():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def extract_urls(text):
+    patterns = [
+        r'https?://[^\s"\']+\.m3u8[^\s"\']*',
+        r'https?://[^\s"\']+\.mp4[^\s"\']*',
+        r'https?://[^\s"\']+\.ts[^\s"\']*',
+        r'https?://[^\s"\']*manifest[^\s"\']*',
+        r'https?://[^\s"\']*playlist[^\s"\']*',
+        r'https?://[^\s"\']*stream[^\s"\']*'
+    ]
+    
+    urls = set()
+    for pattern in patterns:
+        matches = re.findall(pattern, text, re.IGNORECASE)
+        urls.update(matches)
+    
+    return list(urls)
+
 
 if __name__ == "__main__":
     asyncio.run(main())
