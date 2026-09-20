@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.env
+channels.json
+playlist.m3u8
+.playwright/
