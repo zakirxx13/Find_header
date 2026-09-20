@@ -1,15 +1,13 @@
-name: Toffee API Debug
+name: Toffee Playback API Debug
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "0 */6 * * *"
 
 permissions:
   contents: write
 
 jobs:
-  capture-api:
+  capture:
     runs-on: ubuntu-latest
 
     steps:
@@ -27,17 +25,19 @@ jobs:
           pip install playwright
           playwright install chromium --with-deps
 
-      - name: Run API capture
-        run: |
-          python toffee_api_debug.py
+      - name: Capture playback API
+        run: python toffee_playback_debug.py
 
-      - name: Commit debug output
+      - name: Commit results
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add debug/api_calls.json debug/page_errors.json debug/console.json
+          git add debug/
 
-          git diff --cached --quiet || git commit -m "Update Toffee API debug"
-
-          git push
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Capture playback API response"
+            git push
+          fi
