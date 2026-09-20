@@ -34,7 +34,11 @@ def now():
 def safe_filename(url, extension=".m3u8"):
     path = urlparse(url).path
 
-    name = re.sub(r"[^\w.-]+", "_", path).strip("_")
+    name = re.sub(
+        r"[^\w.-]+",
+        "_",
+        path
+    ).strip("_")
 
     if not name:
         name = "playlist"
@@ -60,8 +64,13 @@ def extract_urls(text):
     urls = set()
 
     for pattern in patterns:
-        for match in re.findall(pattern, text, re.IGNORECASE):
-            urls.add(match)
+        matches = re.findall(
+            pattern,
+            text,
+            re.IGNORECASE
+        )
+
+        urls.update(matches)
 
     return list(urls)
 
@@ -72,11 +81,30 @@ def extract_urls(text):
 
 async def main():
 
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    os.makedirs(M3U8_DIR, exist_ok=True)
+    # =====================================================
+    # DIRECTORIES
+    # =====================================================
+
+    os.makedirs(
+        OUTPUT_DIR,
+        exist_ok=True
+    )
+
+    os.makedirs(
+        M3U8_DIR,
+        exist_ok=True
+    )
+
+    # =====================================================
+    # DEVICE TOKEN
+    # =====================================================
 
     if not DEVICE_TOKEN:
-        print("ERROR: DEVICE_TOKEN not found!")
+
+        print(
+            "ERROR: DEVICE_TOKEN not found!"
+        )
+
         return
 
     print("=" * 60)
@@ -98,6 +126,10 @@ async def main():
         # BROWSER
         # =================================================
 
+        print(
+            "\nLaunching Chromium..."
+        )
+
         browser = await p.chromium.launch(
             headless=True,
             args=[
@@ -105,22 +137,35 @@ async def main():
             ]
         )
 
+        print(
+            "✓ Chromium launched"
+        )
+
         # =================================================
         # CONTEXT
         # =================================================
 
         context = await browser.new_context(
+
             viewport={
                 "width": 1366,
                 "height": 768
             },
+
             locale="en-US",
+
             timezone_id="Asia/Dhaka",
+
             extra_http_headers={
                 "X-Device-Token": DEVICE_TOKEN,
                 "X-Device-ID": DEVICE_TOKEN,
-                "Authorization": f"Device {DEVICE_TOKEN}",
+                "Authorization":
+                    f"Device {DEVICE_TOKEN}"
             }
+        )
+
+        print(
+            "✓ Browser context created"
         )
 
         # =================================================
@@ -130,80 +175,126 @@ async def main():
         try:
 
             await context.add_cookies([
+
                 {
                     "name": "device_token",
+
                     "value": DEVICE_TOKEN,
+
                     "domain": ".toffeelive.com",
+
                     "path": "/",
+
                     "httpOnly": True,
+
                     "secure": True,
-                    "sameSite": "Lax",
+
+                    "sameSite": "Lax"
                 },
+
                 {
                     "name": "deviceId",
+
                     "value": DEVICE_TOKEN,
+
                     "domain": ".toffeelive.com",
+
                     "path": "/",
+
+                    "httpOnly": False,
+
                     "secure": True,
-                    "sameSite": "Lax",
+
+                    "sameSite": "Lax"
                 }
+
             ])
 
-            print("✓ Cookies configured")
+            print(
+                "✓ Cookies configured"
+            )
 
         except Exception as e:
-            print(f"Cookie error: {e}")
+
+            print(
+                f"Cookie configuration error: {e}"
+            )
 
         # =================================================
         # STORAGE INITIALIZATION
         # =================================================
         #
         # IMPORTANT:
-        # No about:blank navigation.
-        # Storage is initialized when a real page is loaded.
+        # Do NOT navigate to about:blank and access
+        # localStorage.
+        #
+        # The token is embedded safely into the init script.
         #
 
-        await context.add_init_script(
-            """
-            (token) => {
-                try {
-                    localStorage.setItem(
-                        "device_token",
-                        token
-                    );
-
-                    localStorage.setItem(
-                        "deviceId",
-                        token
-                    );
-
-                    localStorage.setItem(
-                        "X-Device-Token",
-                        token
-                    );
-
-                    sessionStorage.setItem(
-                        "device_token",
-                        token
-                    );
-
-                    sessionStorage.setItem(
-                        "deviceId",
-                        token
-                    );
-
-                } catch (e) {
-                    console.log(
-                        "Storage initialization skipped:",
-                        e.message
-                    );
-                }
-            }
-            """,
+        storage_token = json.dumps(
             DEVICE_TOKEN
         )
 
-        print("✓ Storage initialization configured")
+        try:
+
+            await context.add_init_script(
+                script=f"""
+                (() => {{
+                    const token = {storage_token};
+
+                    try {{
+                        localStorage.setItem(
+                            "device_token",
+                            token
+                        );
+
+                        localStorage.setItem(
+                            "deviceId",
+                            token
+                        );
+
+                        localStorage.setItem(
+                            "X-Device-Token",
+                            token
+                        );
+
+                    }} catch (e) {{
+                        console.log(
+                            "localStorage initialization skipped:",
+                            e.message
+                        );
+                    }}
+
+                    try {{
+                        sessionStorage.setItem(
+                            "device_token",
+                            token
+                        );
+
+                        sessionStorage.setItem(
+                            "deviceId",
+                            token
+                        );
+
+                    }} catch (e) {{
+                        console.log(
+                            "sessionStorage initialization skipped:",
+                            e.message
+                        );
+                    }}
+                }})();
+                """
+            )
+
+            print(
+                "✓ Storage initialization configured"
+            )
+
+        except Exception as e:
+
+            print(
+                f"Storage initialization error: {e}"
+            )
 
         # =================================================
         # PAGE
@@ -211,22 +302,41 @@ async def main():
 
         page = await context.new_page()
 
+        print(
+            "✓ Page created"
+        )
+
         # =================================================
-        # REQUEST HEADER HANDLER
+        # DEVICE HEADER ROUTE
         # =================================================
 
-        async def add_device_headers(route, request):
+        async def add_device_headers(
+            route,
+            request
+        ):
 
             try:
 
-                headers = dict(request.headers)
+                headers = dict(
+                    request.headers
+                )
 
-                if "toffeelive.com" in request.url:
+                if (
+                    "toffeelive.com"
+                    in request.url
+                ):
 
-                    headers["X-Device-Token"] = DEVICE_TOKEN
-                    headers["X-Device-ID"] = DEVICE_TOKEN
+                    headers[
+                        "X-Device-Token"
+                    ] = DEVICE_TOKEN
 
-                await route.continue_(headers=headers)
+                    headers[
+                        "X-Device-ID"
+                    ] = DEVICE_TOKEN
+
+                await route.continue_(
+                    headers=headers
+                )
 
             except Exception as e:
 
@@ -235,7 +345,9 @@ async def main():
                 )
 
                 try:
+
                     await route.continue_()
+
                 except Exception:
                     pass
 
@@ -248,15 +360,21 @@ async def main():
         # ENTITLEMENT LOGGER
         # =================================================
         #
-        # We only record the server response.
-        # We do not modify access/authorization.
+        # Only logs the server response.
+        # It does NOT modify authorization/access.
         #
 
-        async def log_entitlement(route, request):
+        async def log_entitlement(
+            route,
+            request
+        ):
 
             print(
-                f"\n[ENTITLEMENT] "
-                f"{request.url}"
+                "\n[ENTITLEMENT]"
+            )
+
+            print(
+                request.url
             )
 
             try:
@@ -274,7 +392,7 @@ async def main():
                 log_entry = {
                     "time": now(),
                     "url": request.url,
-                    "status": status,
+                    "status": status
                 }
 
                 try:
@@ -284,25 +402,30 @@ async def main():
                         errors="ignore"
                     )
 
-                    data = json.loads(text_body)
+                    data = json.loads(
+                        text_body
+                    )
 
-                    log_entry["response"] = data
+                    log_entry[
+                        "response"
+                    ] = data
 
                     print(
                         json.dumps(
                             data,
-                            indent=2
+                            indent=2,
+                            ensure_ascii=False
                         )[:5000]
                     )
 
                 except Exception:
 
-                    log_entry["response_text"] = (
-                        body.decode(
-                            "utf-8",
-                            errors="ignore"
-                        )[:5000]
-                    )
+                    log_entry[
+                        "response_text"
+                    ] = body.decode(
+                        "utf-8",
+                        errors="ignore"
+                    )[:5000]
 
                 entitlement_logs.append(
                     log_entry
@@ -310,7 +433,9 @@ async def main():
 
                 await route.fulfill(
                     status=response.status,
-                    headers=dict(response.headers),
+                    headers=dict(
+                        response.headers
+                    ),
                     body=body
                 )
 
@@ -321,7 +446,9 @@ async def main():
                 )
 
                 try:
+
                     await route.continue_()
+
                 except Exception:
                     pass
 
@@ -334,46 +461,59 @@ async def main():
         # MEDIA CAPTURE
         # =================================================
 
-        async def capture_media(route, request):
+        async def capture_media(
+            route,
+            request
+        ):
 
             url = request.url
+
             lower_url = url.lower()
+
+            media_extensions = [
+                ".m3u8",
+                ".mp4",
+                ".ts",
+                ".m4s"
+            ]
 
             is_media = any(
                 ext in lower_url
-                for ext in [
-                    ".m3u8",
-                    ".mp4",
-                    ".ts",
-                    ".m4s"
-                ]
+                for ext in media_extensions
             )
 
             if not is_media:
 
                 await route.continue_()
+
                 return
 
             print(
-                f"\n[MEDIA] "
-                f"{url[:150]}"
+                "\n[MEDIA]"
             )
 
-            item = {
-                "url": url,
-                "type": request.resource_type,
-                "time": now(),
-            }
+            print(
+                url[:200]
+            )
 
             if not any(
-                x["url"] == url
-                for x in captured_urls
+                item["url"] == url
+                for item in captured_urls
             ):
-                captured_urls.append(item)
 
-            # =================================================
+                captured_urls.append({
+
+                    "url": url,
+
+                    "type":
+                        request.resource_type,
+
+                    "time": now()
+                })
+
+            # =============================================
             # M3U8
-            # =================================================
+            # =============================================
 
             if ".m3u8" in lower_url:
 
@@ -401,12 +541,12 @@ async def main():
                         f.write(body)
 
                     print(
-                        f"  Saved: {filepath}"
+                        f"M3U8 saved: {filepath}"
                     )
 
-                    # =========================================
+                    # -------------------------------------
                     # Extract URLs from playlist
-                    # =========================================
+                    # -------------------------------------
 
                     content = body.decode(
                         "utf-8",
@@ -420,19 +560,29 @@ async def main():
                     for nested_url in nested_urls:
 
                         if not any(
-                            x["url"] == nested_url
-                            for x in captured_urls
+                            item["url"]
+                            == nested_url
+                            for item
+                            in captured_urls
                         ):
 
                             captured_urls.append({
-                                "url": nested_url,
-                                "type": "from_m3u8",
-                                "time": now(),
+
+                                "url":
+                                    nested_url,
+
+                                "type":
+                                    "from_m3u8",
+
+                                "time":
+                                    now()
                             })
 
                     await route.fulfill(
                         status=response.status,
-                        headers=dict(response.headers),
+                        headers=dict(
+                            response.headers
+                        ),
                         body=body
                     )
 
@@ -441,14 +591,15 @@ async def main():
                 except Exception as e:
 
                     print(
-                        f"  M3U8 capture error: {e}"
+                        f"M3U8 capture error: {e}"
                     )
 
-            # =================================================
+            # =============================================
             # Other media
-            # =================================================
+            # =============================================
 
             try:
+
                 await route.continue_()
 
             except Exception as e:
@@ -463,14 +614,26 @@ async def main():
         )
 
         # =================================================
-        # OPEN PAGE
+        # OPEN CONTENT PAGE
         # =================================================
 
         print(
-            "\n[OPENING]"
+            "\n" + "=" * 60
         )
 
-        print(CONTENT_URL)
+        print(
+            "OPENING CONTENT PAGE"
+        )
+
+        print(
+            "=" * 60
+        )
+
+        print(
+            CONTENT_URL
+        )
+
+        navigation_error = None
 
         try:
 
@@ -482,12 +645,14 @@ async def main():
 
         except Exception as e:
 
+            navigation_error = str(e)
+
             print(
-                f"\nPage navigation warning: {e}"
+                f"Navigation warning: {e}"
             )
 
         # =================================================
-        # PAGE INFO
+        # PAGE INFORMATION
         # =================================================
 
         try:
@@ -511,7 +676,7 @@ async def main():
         # =================================================
 
         print(
-            "\nWaiting for page/player..."
+            "\nWaiting 10 seconds..."
         )
 
         await page.wait_for_timeout(
@@ -519,55 +684,76 @@ async def main():
         )
 
         # =================================================
-        # VIDEO PLAY
+        # PLAY VIDEOS
         # =================================================
+
+        video_play_result = []
 
         try:
 
-            video_result = await page.evaluate(
-                """
-                () => {
-                    const videos =
-                        document.querySelectorAll("video");
+            video_play_result = (
+                await page.evaluate(
+                    """
+                    () => {
 
-                    let results = [];
+                        const videos =
+                            document.querySelectorAll(
+                                "video"
+                            );
 
-                    videos.forEach((v, i) => {
+                        const result = [];
 
-                        try {
-                            v.muted = true;
+                        videos.forEach(
+                            (video, index) => {
 
-                            const p = v.play();
+                                try {
 
-                            if (p) {
-                                p.catch(() => {});
+                                    video.muted = true;
+
+                                    const promise =
+                                        video.play();
+
+                                    if (promise) {
+                                        promise.catch(
+                                            () => {}
+                                        );
+                                    }
+
+                                    result.push({
+
+                                        index: index,
+
+                                        src:
+                                            video.src
+                                            || null,
+
+                                        currentSrc:
+                                            video.currentSrc
+                                            || null
+                                    });
+
+                                } catch (e) {
+
+                                    result.push({
+
+                                        index: index,
+
+                                        error:
+                                            e.message
+                                    });
+                                }
                             }
+                        );
 
-                            results.push({
-                                index: i,
-                                src: v.src || null,
-                                currentSrc:
-                                    v.currentSrc || null
-                            });
-
-                        } catch (e) {
-
-                            results.push({
-                                index: i,
-                                error: e.message
-                            });
-
-                        }
-                    });
-
-                    return results;
-                }
-                """
+                        return result;
+                    }
+                    """
+                )
             )
 
             print(
-                f"Video elements: "
-                f"{len(video_result)}"
+                f"Video elements detected: "
+                f"{len(video_play_result)}"
             )
 
         except Exception as e:
@@ -577,8 +763,12 @@ async def main():
             )
 
         # =================================================
-        # WAIT FOR MEDIA
+        # WAIT FOR MEDIA REQUESTS
         # =================================================
+
+        print(
+            "\nWaiting 15 seconds for media..."
+        )
 
         await page.wait_for_timeout(
             15000
@@ -614,7 +804,9 @@ async def main():
 
         video_data = []
 
-        for i, video in enumerate(videos):
+        for index, video in enumerate(
+            videos
+        ):
 
             try:
 
@@ -622,29 +814,37 @@ async def main():
                     "src"
                 )
 
-                current = await video.get_attribute(
-                    "currentSrc"
+                current_src = (
+                    await video.get_attribute(
+                        "currentSrc"
+                    )
                 )
 
-                if src or current:
+                if src or current_src:
 
                     item = {
-                        "index": i,
+
+                        "index": index,
+
                         "src": src,
-                        "currentSrc": current,
+
+                        "currentSrc":
+                            current_src
                     }
 
-                    video_data.append(item)
+                    video_data.append(
+                        item
+                    )
 
                     print(
-                        f"  Video {i}: "
-                        f"{current or src}"
+                        f"Video {index}: "
+                        f"{current_src or src}"
                     )
 
             except Exception as e:
 
                 print(
-                    f"Video {i} error: {e}"
+                    f"Video {index} error: {e}"
                 )
 
         # =================================================
@@ -653,305 +853,7 @@ async def main():
 
         try:
 
-            perf = await page.evaluate(
-                """
-                () => {
-                    return performance
-                        .getEntriesByType("resource")
-                        .filter(r =>
-                            /\\.(m3u8|mp4|ts|m4s)(\\?|$)/i
-                                .test(r.name)
-                        )
-                        .map(r => ({
-                            url: r.name,
-                            type: r.initiatorType
-                        }));
-                }
-                """
-            )
-
-        except Exception as e:
-
-            print(
-                f"Performance API error: {e}"
-            )
-
-            perf = []
-
-        print(
-            f"\nPerformance API: "
-            f"{len(perf)} URLs"
-        )
-
-        for item in perf[:20]:
-
-            print(
-                f"  - {item['url'][:150]}"
-            )
-
-            if not any(
-                x["url"] == item["url"]
-                for x in captured_urls
-            ):
-
-                captured_urls.append({
-                    "url": item["url"],
-                    "type": (
-                        f"perf_"
-                        f"{item['type']}"
-                    ),
-                    "time": now(),
-                })
-
-        # =================================================
-        # JAVASCRIPT DATA
-        # =================================================
-
-        try:
-
-            js_data = await page.evaluate(
-                """
-                () => {
-
-                    const result = {};
-
-                    [
-                        "player",
-                        "streamData",
-                        "manifest",
-                        "sources"
-                    ].forEach(key => {
-
-                        try {
-
-                            if (
-                                window[key] !== undefined &&
-                                window[key] !== null
-                            ) {
-
-                                result[key] =
-                                    JSON.parse(
-                                        JSON.stringify(
-                                            window[key]
-                                        )
-                                    );
-                            }
-
-                        } catch (e) {
-
-                            result[key + "_error"] =
-                                e.message;
-                        }
-
-                    });
-
-                    return result;
-                }
-                """
-            )
-
-        except Exception as e:
-
-            print(
-                f"JS extraction error: {e}"
-            )
-
-            js_data = {}
-
-        # =================================================
-        # STORAGE CHECK
-        # =================================================
-
-        try:
-
-            storage_data = await page.evaluate(
-                """
-                () => {
-
-                    const result = {
-                        localStorage: {},
-                        sessionStorage: {}
-                    };
-
-                    try {
-
-                        for (
-                            let i = 0;
-                            i < localStorage.length;
-                            i++
-                        ) {
-
-                            const key =
-                                localStorage.key(i);
-
-                            if (
-                                key &&
-                                /device|token/i.test(key)
-                            ) {
-
-                                result.localStorage[key] =
-                                    "[PRESENT]";
-                            }
-                        }
-
-                    } catch (e) {
-
-                        result.localStorage_error =
-                            e.message;
-                    }
-
-                    try {
-
-                        for (
-                            let i = 0;
-                            i < sessionStorage.length;
-                            i++
-                        ) {
-
-                            const key =
-                                sessionStorage.key(i);
-
-                            if (
-                                key &&
-                                /device|token/i.test(key)
-                            ) {
-
-                                result.sessionStorage[key] =
-                                    "[PRESENT]";
-                            }
-                        }
-
-                    } catch (e) {
-
-                        result.sessionStorage_error =
-                            e.message;
-                    }
-
-                    return result;
-                }
-                """
-            )
-
-        except Exception as e:
-
-            storage_data = {
-                "error": str(e)
-            }
-
-        # =================================================
-        # RESULTS
-        # =================================================
-
-        results = {
-            "captured_at": now(),
-
-            "content_url": CONTENT_URL,
-
-            "final_url": page.url,
-
-            "page_title": title,
-
-            "device_token_used": True,
-
-            "videos_found": len(videos),
-
-            "video_elements": video_data,
-
-            "all_urls": captured_urls,
-
-            "performance_urls": perf,
-
-            "entitlement_logs": entitlement_logs,
-
-            "storage_check": storage_data,
-
-            "js_data": js_data,
-        }
-
-        # =================================================
-        # SAVE JSON
-        # =================================================
-
-        result_path = os.path.join(
-            OUTPUT_DIR,
-            "results.json"
-        )
-
-        with open(
-            result_path,
-            "w",
-            encoding="utf-8"
-        ) as f:
-
-            json.dump(
-                results,
-                f,
-                indent=2,
-                ensure_ascii=False
-            )
-
-        print(
-            "\n" + "=" * 60
-        )
-
-        print(
-            "DONE"
-        )
-
-        print(
-            "=" * 60
-        )
-
-        print(
-            f"✓ Results: {result_path}"
-        )
-
-        print(
-            f"✓ M3U8 directory: {M3U8_DIR}/"
-        )
-
-        print(
-            f"✓ Total captured URLs: "
-            f"{len(captured_urls)}"
-        )
-
-        print(
-            f"✓ Entitlement requests: "
-            f"{len(entitlement_logs)}"
-        )
-
-        # =================================================
-        # CLOSE
-        # =================================================
-
-        await context.close()
-        await browser.close()
-
-
-# =========================================================
-# ENTRY POINT
-# =========================================================
-
-if __name__ == "__main__":
-
-    try:
-
-        asyncio.run(main())
-
-    except KeyboardInterrupt:
-
-        print(
-            "\nStopped by user."
-        )
-
-    except Exception as e:
-
-        print(
-            "\nFATAL ERROR:"
-        )
-
-        print(
-            repr(e)
-        )
-
-        raise
+            performance_urls = (
+                await page.evaluate(
+                    """
+                    () 
