@@ -1,60 +1,39 @@
 {
-  "captured_at": "2026-09-20T03:15:39.282247+00:00",
-  "url": "https://entitlement-prod.services.toffeelive.com/toffee/BD/DK/web/playback/Xi_Ga5oBNnOkwJLWkhKP",
+  "captured_at": "2026-09-20T03:27:32.349048+00:00",
+  "url": "https://entitlement-prod.services.toffeelive.com/toffee/BD/DK/web/playback/7x0Jd5YBEef-9-uVv_Gy",
   "status": 200,
   "statusText": "",
   "headers": {
     "access-control-allow-credentials": "true",
     "access-control-allow-origin": "https://toffeelive.com",
     "alt-svc": "h3=\":443\"; ma=2592000",
-    "content-length": "1715",
+    "content-length": "324",
     "content-type": "application/json; charset=utf-8",
-    "date": "Sun, 20 Sep 2026 03:15:39 GMT",
-    "set-cookie": "[REDACTED]",
+    "date": "Sun, 20 Sep 2026 03:27:32 GMT",
     "vary": "Origin",
     "via": "1.1 google",
-    "x-ads-rule": "7",
-    "x-ent-rule": "8"
+    "x-ent-rule": "7"
   },
-  "response_raw": "{\"id\":\"Xi_Ga5oBNnOkwJLWkhKP\",\"title\":\"Somoy TV\",\"playbackDetails\":{\"data\":[{\"url\":\"https://bldcmprod-cdn.toffeelive.com/cdn/live/somoy_tv/playlist.m3u8\",\"streaming_format\":\"HLS\",\"type\":\"video\",\"content_type\":\"LINEAR\",\"package_id\":\"1\"}],\"message\":\"Successfully Created\",\"success\":true,\"playbackType\":\"Live\",\"drmToken\":\"eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb250ZW50aWQiOiJYaV9HYTVvQk5uT2t3SkxXa2hLUCIsInVzZXJpZCI6IjlkZTQ2MDdiLTVlMjItNDA3MS1iYTJkLTk3NTliNWM5OGRlOCIsImRldmljZWlkIjoibmEiLCJzZWN1cml0eUxldmVsIjpudWxsLCJsaWNlbnNlRHVyYXRpb24iOiIiLCJvZmZsaW5lUGxheWJhY2siOiJmYWxzZSIsImhkY3AiOm51bGwsImlhdCI6MTc4OTg3NDEzOSwiZXhwIjoxNzg5ODc0NDM5fQ.P-FCxzxAbHH8EEKBOS1ep01v_empt1boV4mFriIWo4u5Di8lixBzKyPJ6fa9XTDIn2k8P2NZIcouA8M1QYNnqVStYbNbv6_1ToE4l52bUJYpKWpAiGuIX0aw91WnXWE2Tax4Ta6lL4FUZFDNknGhYvBkLl3CGHSIFM5LQfygbG_8-aQXoX75T9u3nfjHzsZBzy9EejsF-CnQQB4_K8JP_4ERLv3JpVcFhL8CjGWTj0AbGhbUCBHYnFOtNJgAY_JJ2KmkAOCoo6vGvGoVxTQaxMRcI0zfTfa9IlQj8Ta3KBaBNhhn8cQhi338XPFF-TqpwvFfMskkfMBFDpYC-Cs2QQ\"},\"ads\":\"yes\",\"offlinePlayback\":\"false\",\"access\":\"allow\",\"adsDetails\":{\"pre_roll\":{\"show\":true,\"count\":1,\"url\":\"https://pubads.g.doubleclick.net/gampad/live/ads?iu=/22419763167/Toffee_instream_preroll_website_live&description_url=https%3A%2F%2Ftoffeelive.com&tfcd=0&npa=0&sz=1280x720%7C1920x1080&gdfp_req=1&output=vast&unviewed_position_start=1&env=vp&impl=s&correlator= AND https://servg.eskimi.com/api/adserver61/vast/?AV_PUBLISHERID=654a6958e3e829c76b04b8e6&AV_CHANNELID=654a6a468bbf29c2920d7156&AV_URL=[URL_MACRO]&cb=[TIMESTAMP_MACRO]&AV_WIDTH=[WIDTH_MACRO]&AV_HEIGHT=[HEIGHT_MACRO]&AV_SCHAIN=[SCHAIN_MACRO]&logo=false\"},\"mid_roll\":{\"show\":false,\"interval\":0,\"count\":0,\"url\":\"\"},\"post_roll\":{\"show\":false,\"count\":0,\"url\":\"\"}}}",
+  "response_raw": "{\"id\":\"7x0Jd5YBEef-9-uVv_Gy\",\"title\":\"Zee Anmol\",\"access\":\"deny\",\"suggestedPlans\":[\"PRIWP00005\",\"PRMJS00004\",\"BLALLPACKPLANGTE7\",\"TK160APPUL7DGGCAL\",\"TK160APPRCUL7DGGCAL\",\"TK0USSD7DGTOFSUBS\",\"TK1800FWAUL30DGFWA\",\"TK0ULTOF1DPOST\",\"TK0ULTOF1D\",\"TK1000FWAUL30DGFWA\",\"TK706EV90DTOFPOST\",\"BLACCESS30D\",\"PRICC00007\",\"PRYVU00010\"]}",
   "response_json": {
-    "id": "Xi_Ga5oBNnOkwJLWkhKP",
-    "title": "Somoy TV",
-    "playbackDetails": {
-      "data": [
-        {
-          "url": "https://bldcmprod-cdn.toffeelive.com/cdn/live/somoy_tv/playlist.m3u8",
-          "streaming_format": "HLS",
-          "type": "video",
-          "content_type": "LINEAR",
-          "package_id": "1"
-        }
-      ],
-      "message": "Successfully Created",
-      "success": true,
-      "playbackType": "Live",
-      "drmToken": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb250ZW50aWQiOiJYaV9HYTVvQk5uT2t3SkxXa2hLUCIsInVzZXJpZCI6IjlkZTQ2MDdiLTVlMjItNDA3MS1iYTJkLTk3NTliNWM5OGRlOCIsImRldmljZWlkIjoibmEiLCJzZWN1cml0eUxldmVsIjpudWxsLCJsaWNlbnNlRHVyYXRpb24iOiIiLCJvZmZsaW5lUGxheWJhY2siOiJmYWxzZSIsImhkY3AiOm51bGwsImlhdCI6MTc4OTg3NDEzOSwiZXhwIjoxNzg5ODc0NDM5fQ.P-FCxzxAbHH8EEKBOS1ep01v_empt1boV4mFriIWo4u5Di8lixBzKyPJ6fa9XTDIn2k8P2NZIcouA8M1QYNnqVStYbNbv6_1ToE4l52bUJYpKWpAiGuIX0aw91WnXWE2Tax4Ta6lL4FUZFDNknGhYvBkLl3CGHSIFM5LQfygbG_8-aQXoX75T9u3nfjHzsZBzy9EejsF-CnQQB4_K8JP_4ERLv3JpVcFhL8CjGWTj0AbGhbUCBHYnFOtNJgAY_JJ2KmkAOCoo6vGvGoVxTQaxMRcI0zfTfa9IlQj8Ta3KBaBNhhn8cQhi338XPFF-TqpwvFfMskkfMBFDpYC-Cs2QQ"
-    },
-    "ads": "yes",
-    "offlinePlayback": "false",
-    "access": "allow",
-    "adsDetails": {
-      "pre_roll": {
-        "show": true,
-        "count": 1,
-        "url": "https://pubads.g.doubleclick.net/gampad/live/ads?iu=/22419763167/Toffee_instream_preroll_website_live&description_url=https%3A%2F%2Ftoffeelive.com&tfcd=0&npa=0&sz=1280x720%7C1920x1080&gdfp_req=1&output=vast&unviewed_position_start=1&env=vp&impl=s&correlator= AND https://servg.eskimi.com/api/adserver61/vast/?AV_PUBLISHERID=654a6958e3e829c76b04b8e6&AV_CHANNELID=654a6a468bbf29c2920d7156&AV_URL=[URL_MACRO]&cb=[TIMESTAMP_MACRO]&AV_WIDTH=[WIDTH_MACRO]&AV_HEIGHT=[HEIGHT_MACRO]&AV_SCHAIN=[SCHAIN_MACRO]&logo=false"
-      },
-      "mid_roll": {
-        "show": false,
-        "interval": 0,
-        "count": 0,
-        "url": ""
-      },
-      "post_roll": {
-        "show": false,
-        "count": 0,
-        "url": ""
-      }
-    }
+    "id": "7x0Jd5YBEef-9-uVv_Gy",
+    "title": "Zee Anmol",
+    "access": "deny",
+    "suggestedPlans": [
+      "PRIWP00005",
+      "PRMJS00004",
+      "BLALLPACKPLANGTE7",
+      "TK160APPUL7DGGCAL",
+      "TK160APPRCUL7DGGCAL",
+      "TK0USSD7DGTOFSUBS",
+      "TK1800FWAUL30DGFWA",
+      "TK0ULTOF1DPOST",
+      "TK0ULTOF1D",
+      "TK1000FWAUL30DGFWA",
+      "TK706EV90DTOFPOST",
+      "BLACCESS30D",
+      "PRICC00007",
+      "PRYVU00010"
+    ]
   }
 }

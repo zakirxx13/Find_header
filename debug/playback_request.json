@@ -1,12 +1,12 @@
 {
-  "captured_at": "2026-09-20T03:15:39.281694+00:00",
-  "url": "https://entitlement-prod.services.toffeelive.com/toffee/BD/DK/web/playback/Xi_Ga5oBNnOkwJLWkhKP",
+  "captured_at": "2026-09-20T03:27:32.348497+00:00",
+  "url": "https://entitlement-prod.services.toffeelive.com/toffee/BD/DK/web/playback/7x0Jd5YBEef-9-uVv_Gy",
   "method": "POST",
   "resourceType": "fetch",
   "headers": {
     ":authority": "entitlement-prod.services.toffeelive.com",
     ":method": "POST",
-    ":path": "/toffee/BD/DK/web/playback/Xi_Ga5oBNnOkwJLWkhKP",
+    ":path": "/toffee/BD/DK/web/playback/7x0Jd5YBEef-9-uVv_Gy",
     ":scheme": "https",
     "accept": "*/*",
     "accept-encoding": "gzip, deflate, br, zstd",
